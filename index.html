@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>在职人员信息分析平台</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>📊 在职人员信息分析平台</h1>
+    <p>多维度筛选 · 可视化分析 · 数据导出</p>
+  </div>
+  <div class="header-actions">
+    <button class="btn-import" onclick="document.getElementById('fileInputHeader').click()">📂 导入Excel</button>
+    <input type="file" id="fileInputHeader" accept=".xlsx,.xls" style="display:none" onchange="handleFileImport(this)">
+  </div>
+</div>
+
+<div class="container">
+  <!-- Import Panel -->
+  <div class="import-panel" id="importPanel">
+    <div class="import-icon">📁</div>
+    <h3>导入在职人员信息 Excel</h3>
+    <p>将 .xlsx 文件拖拽到此处，或点击下方按钮选择文件</p>
+    <button class="btn-choose" onclick="document.getElementById('fileInput').click()">选择 Excel 文件</button>
+    <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleFileImport(this)">
+    <div class="mapping-hint">
+      <b>📋 自动识别规则：</b>根据"部门"字段自动归属公司 — 部门含"上海"→上海宏韧，含"广州"→广州宏韧，含"数据管理与统计"→武汉弘质，其余→武汉宏韧
+    </div>
+  </div>
+
+  <!-- Data Section -->
+  <div class="data-section" id="dataSection">
+    <div class="stats-bar" id="statsBar"></div>
+    <div class="company-tabs" id="companyTabs"></div>
+
+    <div class="filter-panel">
+      <div class="filter-title">🔍 筛选条件</div>
+      <div class="filter-row">
+        <div class="filter-group">
+          <label>公司</label>
+          <select id="filterCompany"><option value="">全部公司</option></select>
+        </div>
+        <div class="filter-group">
+          <label>部门</label>
+          <select id="filterDept"><option value="">全部部门</option></select>
+        </div>
+        <div class="filter-group">
+          <label>学历</label>
+          <select id="filterEdu"><option value="">全部学历</option></select>
+        </div>
+        <div class="filter-group">
+          <label>性别</label>
+          <select id="filterGender"><option value="">全部</option></select>
+        </div>
+        <div class="filter-group">
+          <label>岗位</label>
+          <select id="filterPosition"><option value="">全部岗位</option></select>
+        </div>
+        <div class="filter-group">
+          <label>年龄段</label>
+          <select id="filterAge">
+            <option value="">全部年龄</option>
+            <option value="20-25">20-25岁</option>
+            <option value="26-30">26-30岁</option>
+            <option value="31-35">31-35岁</option>
+            <option value="36-40">36-40岁</option>
+            <option value="41-45">41-45岁</option>
+            <option value="46-50">46-50岁</option>
+            <option value="50+">50岁以上</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>入职年限</label>
+          <select id="filterTenure">
+            <option value="">全部年限</option>
+            <option value="0-1">1年以内</option>
+            <option value="1-3">1-3年</option>
+            <option value="3-5">3-5年</option>
+            <option value="5-10">5-10年</option>
+            <option value="10+">10年以上</option>
+          </select>
+        </div>
+        <button class="btn-reset" onclick="resetFilters()">重置筛选</button>
+        <button class="btn-export" onclick="exportCSV()">📥 导出CSV</button>
+      </div>
+    </div>
+
+    <div style="margin-bottom:16px; display:flex; align-items:center; gap:16px;">
+      <label class="compare-toggle">
+        <input type="checkbox" id="compareMode" onchange="renderCharts()"> 公司对比模式（同时展示各公司数据）
+      </label>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h3><span class="icon" style="background:#EEF2FF;">🎓</span> 学历分布</h3>
+        <div class="chart-container"><canvas id="chartEdu"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3><span class="icon" style="background:#FCE7F3;">👤</span> 性别分布</h3>
+        <div class="chart-container"><canvas id="chartGender"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3><span class="icon" style="background:#FEF3C7;">📅</span> 年龄分布</h3>
+        <div class="chart-container"><canvas id="chartAge"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3><span class="icon" style="background:#D1FAE5;">💼</span> 岗位分布 (Top 15)</h3>
+        <div class="chart-container"><canvas id="chartPosition"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3><span class="icon" style="background:#E0E7FF;">🏢</span> 部门人数分布</h3>
+        <div class="chart-container"><canvas id="chartDept"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3><span class="icon" style="background:#FEE2E2;">⏳</span> 入职年限分布</h3>
+        <div class="chart-container"><canvas id="chartTenure"></canvas></div>
+      </div>
+    </div>
+
+    <div class="table-section">
+      <div class="table-header">
+        <h3>📋 人员明细</h3>
+        <span class="result-count" id="resultCount"></span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>公司</th><th>姓名</th><th>性别</th><th>年龄</th><th>学历</th><th>部门</th><th>岗位</th><th>职等序列</th><th>入职时间</th><th>年限</th><th>毕业学校</th><th>专业</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
